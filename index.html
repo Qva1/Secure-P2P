@@ -6,25 +6,16 @@
 <title>P2P DEX Elite</title>
 
 <style>
-:root{
---bg:#0f172a;
---card:#1e293b;
---primary:#00c896;
---danger:#ef4444;
---text:#ffffff;
---gray:#94a3b8;
-}
-
 body{
 margin:0;
-font-family:system-ui;
-background:var(--bg);
-color:var(--text);
+font-family:Arial, sans-serif;
+background:#0f172a;
+color:white;
 }
 
 header{
+background:#111827;
 padding:15px;
-background:#0b1220;
 display:flex;
 justify-content:space-between;
 align-items:center;
@@ -34,34 +25,33 @@ font-weight:bold;
 .container{
 max-width:600px;
 margin:auto;
-padding:15px;
+padding:20px;
 }
 
 .card{
-background:var(--card);
+background:#1e293b;
 padding:15px;
-border-radius:12px;
+border-radius:10px;
 margin-bottom:15px;
 }
 
 input{
 width:100%;
 padding:10px;
-margin-top:8px;
-border-radius:8px;
+margin-top:10px;
+border-radius:6px;
 border:none;
-outline:none;
 }
 
 button{
-background:var(--primary);
-border:none;
+width:100%;
 padding:10px;
-border-radius:8px;
+margin-top:10px;
+background:#00c896;
+border:none;
+border-radius:6px;
 color:white;
 cursor:pointer;
-margin-top:8px;
-width:100%;
 font-weight:bold;
 }
 
@@ -69,13 +59,13 @@ button:hover{
 opacity:0.9;
 }
 
-.small{
-font-size:12px;
-color:var(--gray)
+.hidden{
+display:none;
 }
 
-.hidden{
-display:none
+.small{
+font-size:12px;
+color:#94a3b8;
 }
 </style>
 </head>
@@ -89,16 +79,18 @@ P2P DEX ELITE
 
 <div class="container">
 
+<!-- AUTH -->
 <div id="auth">
 <div class="card">
 <h3>Acceso</h3>
 <input id="username" placeholder="Usuario">
 <input id="password" type="password" placeholder="Contraseña">
-<button onclick="register()">Crear Cuenta</button>
-<button onclick="login()">Entrar</button>
+<button onclick="registerUser()">Crear Cuenta</button>
+<button onclick="loginUser()">Entrar</button>
 </div>
 </div>
 
+<!-- APP -->
 <div id="app" class="hidden">
 
 <div class="card">
@@ -114,192 +106,158 @@ Reputación: ⭐ <span id="rep"></span>
 <div id="orders"></div>
 </div>
 
-<div class="card">
-<b>Blockchain (últimos bloques)</b>
-<div id="chain"></div>
-</div>
-
 </div>
 </div>
 
 <script>
 
-// -------- Estado --------
+// ==========================
+// BASE DE DATOS LOCAL
+// ==========================
 
 let users = JSON.parse(localStorage.getItem("users")) || [];
-let orders = JSON.parse(localStorage.getItem("orders")) || [];
-let blockchain = JSON.parse(localStorage.getItem("blockchain")) || [];
 let currentUser = JSON.parse(localStorage.getItem("currentUser")) || null;
-
-// -------- Helpers --------
 
 function save(){
 localStorage.setItem("users", JSON.stringify(users));
-localStorage.setItem("orders", JSON.stringify(orders));
-localStorage.setItem("blockchain", JSON.stringify(blockchain));
 localStorage.setItem("currentUser", JSON.stringify(currentUser));
 }
 
-async function sha256(str){
-const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-return Array.from(new Uint8Array(buffer))
-.map(b=>b.toString(16).padStart(2,"0"))
-.join("");
+// ==========================
+// REGISTRO
+// ==========================
+
+function registerUser(){
+
+let username = document.getElementById("username").value.trim();
+let password = document.getElementById("password").value.trim();
+
+if(username === "" || password === ""){
+alert("Completa todos los campos");
+return;
 }
 
-async function generateAddress(username){
-return "0x"+(await sha256(username + Date.now())).slice(0,40);
+if(users.find(u => u.username === username)){
+alert("Ese usuario ya existe");
+return;
 }
 
-// -------- Auth --------
-
-async function register(){
-const usernameInput = document.getElementById("username");
-const passwordInput = document.getElementById("password");
-
-if(!usernameInput.value || !passwordInput.value)
-return alert("Completa todos los campos");
-
-if(users.find(u=>u.username===usernameInput.value))
-return alert("Ese usuario ya existe");
-
-const address = await generateAddress(usernameInput.value);
-
-const newUser = {
-username: usernameInput.value,
-password: passwordInput.value,
+let newUser = {
+username: username,
+password: password,
 balance: 1000,
 reputation: 5,
-address
+address: "0x" + Math.random().toString(16).substring(2,10)
 };
 
 users.push(newUser);
 save();
+
 alert("Cuenta creada correctamente");
 }
 
-function login(){
-const usernameInput = document.getElementById("username");
-const passwordInput = document.getElementById("password");
+// ==========================
+// LOGIN
+// ==========================
 
-const user = users.find(u =>
-u.username === usernameInput.value &&
-u.password === passwordInput.value
+function loginUser(){
+
+let username = document.getElementById("username").value.trim();
+let password = document.getElementById("password").value.trim();
+
+let user = users.find(u => 
+u.username === username &&
+u.password === password
 );
 
-if(!user) return alert("Usuario o contraseña incorrectos");
+if(!user){
+alert("Usuario o contraseña incorrectos");
+return;
+}
 
 currentUser = user;
 save();
-init();
+initApp();
 }
 
+// ==========================
+// LOGOUT
+// ==========================
+
 function logout(){
-currentUser = null;
-save();
+localStorage.removeItem("currentUser");
 location.reload();
 }
 
-// -------- App --------
+// ==========================
+// INICIAR APP
+// ==========================
 
-function init(){
+function initApp(){
+
 document.getElementById("auth").classList.add("hidden");
 document.getElementById("app").classList.remove("hidden");
-updateUI();
-renderOrders();
-renderChain();
-}
 
-function updateUI(){
 document.getElementById("address").innerText = currentUser.address;
 document.getElementById("balance").innerText = currentUser.balance;
 document.getElementById("rep").innerText = currentUser.reputation;
+
+renderOrders();
 }
 
-// -------- Órdenes --------
-
-function generarOrdenesDemo(){
-orders = [
-{id:1001,buyerName:"Carlos Méndez",amount:10,status:"Escrow"},
-{id:1002,buyerName:"Ana Rodríguez",amount:25,status:"Escrow"},
-{id:1003,buyerName:"Luis Fernández",amount:50,status:"Escrow"},
-{id:1004,buyerName:"María López",amount:75,status:"Escrow"},
-{id:1005,buyerName:"Jorge Castillo",amount:120,status:"Escrow"}
-];
-save();
-}
+// ==========================
+// ÓRDENES DEMO
+// ==========================
 
 function renderOrders(){
-const ordersDiv = document.getElementById("orders");
+
+let ordersDiv = document.getElementById("orders");
 ordersDiv.innerHTML = "";
 
-orders.forEach(o=>{
+let demoOrders = [
+{id:1, buyer:"Carlos Méndez", amount:20},
+{id:2, buyer:"Ana Rodríguez", amount:50},
+{id:3, buyer:"Luis Fernández", amount:100}
+];
+
+demoOrders.forEach(order => {
+
 ordersDiv.innerHTML += `
 <div class="card">
-<b>Orden #${o.id}</b><br>
-Comprador: ${o.buyerName}<br>
-Cantidad: ${o.amount} USDT<br>
-Estado: ${o.status}<br>
-${o.status==="Escrow" ? `<button onclick="completeOrder(${o.id})">Completar</button>` : ""}
-</div>`;
+Orden #${order.id}<br>
+Comprador: ${order.buyer}<br>
+Cantidad: ${order.amount} USDT<br>
+<button onclick="completeOrder(${order.amount})">
+Completar Orden
+</button>
+</div>
+`;
+
 });
 }
 
-async function completeOrder(id){
-let order = orders.find(o=>o.id===id);
-if(order.status==="Completada") return;
+// ==========================
+// COMPLETAR ORDEN
+// ==========================
 
-order.status="Completada";
+function completeOrder(amount){
 
-const blockData = {
-time: Date.now(),
-orderId: id,
-buyer: order.buyerName
-};
-
-const hash = await sha256(JSON.stringify(blockData));
-
-blockchain.push({
-index: blockchain.length,
-data: blockData,
-hash
-});
-
-currentUser.balance += order.amount;
+currentUser.balance += amount;
 currentUser.reputation += 1;
 
 save();
-updateUI();
-renderOrders();
-renderChain();
+initApp();
 }
 
-// -------- Blockchain --------
-
-function renderChain(){
-const chainDiv = document.getElementById("chain");
-chainDiv.innerHTML="";
-
-blockchain.slice(-5).forEach(b=>{
-chainDiv.innerHTML += `
-<div class="small">
-Bloque #${b.index}<br>
-Hash: ${b.hash.slice(0,30)}...
-</div><hr>`;
-});
-}
-
-// -------- Init --------
-
-if(orders.length===0){
-generarOrdenesDemo();
-}
+// ==========================
+// AUTO LOGIN SI EXISTE
+// ==========================
 
 if(currentUser){
-init();
+initApp();
 }
 
 </script>
 
 </body>
-  </html>
+</html>
