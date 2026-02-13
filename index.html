@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P2P DEX Elite</title>
+
+<style>
+:root{
+--bg:#0f172a;
+--card:#1e293b;
+--primary:#00c896;
+--text:#ffffff;
+--gray:#94a3b8;
+}
+
+body{
+margin:0;
+font-family:system-ui;
+background:var(--bg);
+color:var(--text);
+}
+
+header{
+padding:15px;
+background:#0b1220;
+display:flex;
+justify-content:space-between;
+align-items:center;
+font-weight:bold;
+}
+
+.container{
+max-width:600px;
+margin:auto;
+padding:15px;
+}
+
+.card{
+background:var(--card);
+padding:15px;
+border-radius:12px;
+margin-bottom:15px;
+}
+
+input{
+width:100%;
+padding:10px;
+margin-top:8px;
+border-radius:8px;
+border:none;
+}
+
+button{
+background:var(--primary);
+border:none;
+padding:10px;
+border-radius:8px;
+color:white;
+cursor:pointer;
+margin-top:8px;
+width:100%;
+}
+
+.small{font-size:12px;color:var(--gray)}
+
+.hidden{display:none}
+</style>
+</head>
+
+<body>
+
+<header>
+P2P DEX ELITE
+<button onclick="logout()">Salir</button>
+</header>
+
+<div class="container">
+
+<div id="auth">
+<div class="card">
+<h3>Acceso</h3>
+<input id="username" placeholder="Usuario">
+<input id="password" type="password" placeholder="Contraseña">
+<button onclick="register()">Crear Cuenta</button>
+<button onclick="login()">Entrar</button>
+</div>
+</div>
+
+<div id="app" class="hidden">
+
+<div class="card">
+<b>Wallet</b><br>
+Dirección:
+<div class="small" id="address"></div>
+Balance: <span id="balance"></span> USDT<br>
+Reputación: ⭐ <span id="rep"></span>
+</div>
+
+<div class="card">
+<b>Órdenes Simuladas</b>
+<div id="orders"></div>
+</div>
+
+<div class="card">
+<b>Blockchain Simulada</b>
+<div id="chain"></div>
+</div>
+
+</div>
+</div>
+
+<script>
+
+let users = JSON.parse(localStorage.getItem("users")) || []
+let orders = JSON.parse(localStorage.getItem("orders")) || []
+let blockchain = JSON.parse(localStorage.getItem("blockchain")) || []
+let currentUser = JSON.parse(localStorage.getItem("currentUser"))
+
+function save(){
+localStorage.setItem("users",JSON.stringify(users))
+localStorage.setItem("orders",JSON.stringify(orders))
+localStorage.setItem("blockchain",JSON.stringify(blockchain))
+localStorage.setItem("currentUser",JSON.stringify(currentUser))
+}
+
+function sha256(str){
+return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str))
+.then(buf=>Array.from(new Uint8Array(buf))
+.map(b=>b.toString(16).padStart(2,"0")).join(""))
+}
+
+async function generateAddress(username){
+return "0x"+(await sha256(username+Date.now())).slice(0,40)
+}
+
+async function register(){
+if(users.find(u=>u.username===username.value)) return alert("Usuario existe")
+
+let address=await generateAddress(username.value)
+
+users.push({
+username:username.value,
+password:password.value,
+balance:1000,
+reputation:5,
+address
+})
+
+save()
+alert("Cuenta creada")
+}
+
+function login(){
+let user=users.find(u=>u.username===username.value && u.password===password.value)
+if(!user) return alert("Error")
+currentUser=user
+save()
+init()
+}
+
+function logout(){
+currentUser=null
+save()
+location.reload()
+}
+
+function init(){
+auth.classList.add("hidden")
+app.classList.remove("hidden")
+updateUI()
+renderOrders()
+renderChain()
+}
+
+function updateUI(){
+address.innerText=currentUser.address
+balance.innerText=currentUser.balance
+rep.innerText=currentUser.reputation
+}
+
+function generarOrdenesDemo(){
+orders = [
+{
+id:1001,
+buyerName:"Carlos Méndez",
+buyerPhone:"+34600111222",
+amount:10,
+status:"Escrow"
+},
+{
+id:1002,
+buyerName:"Ana Rodríguez",
+buyerPhone:"+34600333444",
+amount:5,
+status:"Escrow"
+},
+{
+id:1003,
+buyerName:"Luis Fernández",
+buyerPhone:"+34600555666",
+amount:20,
+status:"Escrow"
+},
+{
+id:1004,
+buyerName:"María López",
+buyerPhone:"+34600777888",
+amount:40,
+status:"Escrow"
+},
+{
+id:1005,
+buyerName:"Jorge Castillo",
+buyerPhone:"+34600999000",
+amount:50,
+status:"Escrow"
+},
+{
+id:1006,
+buyerName:"Laura Sánchez",
+buyerPhone:"+34600123456",
+amount:120,
+status:"Escrow"
+},
+{
+id:1007,
+buyerName:"Andrés Torres",
+buyerPhone:"+34600987654",
+amount:260,
+status:"Escrow"
+}
+]
+save()
+}
+
+function renderOrders(){
+ordersDiv=""
+orders.innerHTML=""
+orders.forEach(o=>{
+orders.innerHTML+=`
+<div class="card">
+<b>Orden #${o.id}</b><br>
+Comprador: ${o.buyerName}<br>
+Teléfono: ${o.buyerPhone}<br>
+Cantidad: ${o.amount} USDT<br>
+Estado: ${o.status}<br>
+<button onclick="completeOrder(${o.id})">Completar</button>
+</div>`
+})
+}
+
+async function completeOrder(id){
+let order=orders.find(o=>o.id===id)
+order.status="Completada"
+
+let blockData={
+time:Date.now(),
+orderId:id,
+buyer:order.buyerName
+}
+
+let hash=await sha256(JSON.stringify(blockData))
+
+blockchain.push({
+index:blockchain.length,
+data:blockData,
+hash
+})
+
+currentUser.balance+=order.amount
+currentUser.reputation+=1
+
+save()
+updateUI()
+renderOrders()
+renderChain()
+}
+
+function renderChain(){
+chain.innerHTML=""
+blockchain.slice(-5).forEach(b=>{
+chain.innerHTML+=`
+<div class="small">
+Bloque #${b.index}<br>
+Hash: ${b.hash.slice(0,25)}...
+</div><hr>`
+})
+}
+
+if(orders.length===0){
+generarOrdenesDemo()
+}
+
+if(currentUser) init()
+
+</script>
+
+</body>
+</html>
