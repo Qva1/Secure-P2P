@@ -10,6 +10,7 @@
 --bg:#0f172a;
 --card:#1e293b;
 --primary:#00c896;
+--danger:#ef4444;
 --text:#ffffff;
 --gray:#94a3b8;
 }
@@ -49,6 +50,7 @@ padding:10px;
 margin-top:8px;
 border-radius:8px;
 border:none;
+outline:none;
 }
 
 button{
@@ -60,11 +62,21 @@ color:white;
 cursor:pointer;
 margin-top:8px;
 width:100%;
+font-weight:bold;
 }
 
-.small{font-size:12px;color:var(--gray)}
+button:hover{
+opacity:0.9;
+}
 
-.hidden{display:none}
+.small{
+font-size:12px;
+color:var(--gray)
+}
+
+.hidden{
+display:none
+}
 </style>
 </head>
 
@@ -90,20 +102,20 @@ P2P DEX ELITE
 <div id="app" class="hidden">
 
 <div class="card">
-<b>Wallet</b><br>
+<b>Wallet</b><br><br>
 Dirección:
-<div class="small" id="address"></div>
+<div class="small" id="address"></div><br>
 Balance: <span id="balance"></span> USDT<br>
 Reputación: ⭐ <span id="rep"></span>
 </div>
 
 <div class="card">
-<b>Órdenes Simuladas</b>
+<b>Órdenes Disponibles</b>
 <div id="orders"></div>
 </div>
 
 <div class="card">
-<b>Blockchain Simulada</b>
+<b>Blockchain (últimos bloques)</b>
 <div id="chain"></div>
 </div>
 
@@ -112,189 +124,182 @@ Reputación: ⭐ <span id="rep"></span>
 
 <script>
 
-let users = JSON.parse(localStorage.getItem("users")) || []
-let orders = JSON.parse(localStorage.getItem("orders")) || []
-let blockchain = JSON.parse(localStorage.getItem("blockchain")) || []
-let currentUser = JSON.parse(localStorage.getItem("currentUser"))
+// -------- Estado --------
+
+let users = JSON.parse(localStorage.getItem("users")) || [];
+let orders = JSON.parse(localStorage.getItem("orders")) || [];
+let blockchain = JSON.parse(localStorage.getItem("blockchain")) || [];
+let currentUser = JSON.parse(localStorage.getItem("currentUser")) || null;
+
+// -------- Helpers --------
 
 function save(){
-localStorage.setItem("users",JSON.stringify(users))
-localStorage.setItem("orders",JSON.stringify(orders))
-localStorage.setItem("blockchain",JSON.stringify(blockchain))
-localStorage.setItem("currentUser",JSON.stringify(currentUser))
+localStorage.setItem("users", JSON.stringify(users));
+localStorage.setItem("orders", JSON.stringify(orders));
+localStorage.setItem("blockchain", JSON.stringify(blockchain));
+localStorage.setItem("currentUser", JSON.stringify(currentUser));
 }
 
-function sha256(str){
-return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str))
-.then(buf=>Array.from(new Uint8Array(buf))
-.map(b=>b.toString(16).padStart(2,"0")).join(""))
+async function sha256(str){
+const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+return Array.from(new Uint8Array(buffer))
+.map(b=>b.toString(16).padStart(2,"0"))
+.join("");
 }
 
 async function generateAddress(username){
-return "0x"+(await sha256(username+Date.now())).slice(0,40)
+return "0x"+(await sha256(username + Date.now())).slice(0,40);
 }
 
+// -------- Auth --------
+
 async function register(){
-if(users.find(u=>u.username===username.value)) return alert("Usuario existe")
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
 
-let address=await generateAddress(username.value)
+if(!usernameInput.value || !passwordInput.value)
+return alert("Completa todos los campos");
 
-users.push({
-username:username.value,
-password:password.value,
-balance:1000,
-reputation:5,
+if(users.find(u=>u.username===usernameInput.value))
+return alert("Ese usuario ya existe");
+
+const address = await generateAddress(usernameInput.value);
+
+const newUser = {
+username: usernameInput.value,
+password: passwordInput.value,
+balance: 1000,
+reputation: 5,
 address
-})
+};
 
-save()
-alert("Cuenta creada")
+users.push(newUser);
+save();
+alert("Cuenta creada correctamente");
 }
 
 function login(){
-let user=users.find(u=>u.username===username.value && u.password===password.value)
-if(!user) return alert("Error")
-currentUser=user
-save()
-init()
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
+
+const user = users.find(u =>
+u.username === usernameInput.value &&
+u.password === passwordInput.value
+);
+
+if(!user) return alert("Usuario o contraseña incorrectos");
+
+currentUser = user;
+save();
+init();
 }
 
 function logout(){
-currentUser=null
-save()
-location.reload()
+currentUser = null;
+save();
+location.reload();
 }
 
+// -------- App --------
+
 function init(){
-auth.classList.add("hidden")
-app.classList.remove("hidden")
-updateUI()
-renderOrders()
-renderChain()
+document.getElementById("auth").classList.add("hidden");
+document.getElementById("app").classList.remove("hidden");
+updateUI();
+renderOrders();
+renderChain();
 }
 
 function updateUI(){
-address.innerText=currentUser.address
-balance.innerText=currentUser.balance
-rep.innerText=currentUser.reputation
+document.getElementById("address").innerText = currentUser.address;
+document.getElementById("balance").innerText = currentUser.balance;
+document.getElementById("rep").innerText = currentUser.reputation;
 }
+
+// -------- Órdenes --------
 
 function generarOrdenesDemo(){
 orders = [
-{
-id:1001,
-buyerName:"Carlos Méndez",
-buyerPhone:"+34600111222",
-amount:10,
-status:"Escrow"
-},
-{
-id:1002,
-buyerName:"Ana Rodríguez",
-buyerPhone:"+34600333444",
-amount:5,
-status:"Escrow"
-},
-{
-id:1003,
-buyerName:"Luis Fernández",
-buyerPhone:"+34600555666",
-amount:20,
-status:"Escrow"
-},
-{
-id:1004,
-buyerName:"María López",
-buyerPhone:"+34600777888",
-amount:40,
-status:"Escrow"
-},
-{
-id:1005,
-buyerName:"Jorge Castillo",
-buyerPhone:"+34600999000",
-amount:50,
-status:"Escrow"
-},
-{
-id:1006,
-buyerName:"Laura Sánchez",
-buyerPhone:"+34600123456",
-amount:120,
-status:"Escrow"
-},
-{
-id:1007,
-buyerName:"Andrés Torres",
-buyerPhone:"+34600987654",
-amount:260,
-status:"Escrow"
-}
-]
-save()
+{id:1001,buyerName:"Carlos Méndez",amount:10,status:"Escrow"},
+{id:1002,buyerName:"Ana Rodríguez",amount:25,status:"Escrow"},
+{id:1003,buyerName:"Luis Fernández",amount:50,status:"Escrow"},
+{id:1004,buyerName:"María López",amount:75,status:"Escrow"},
+{id:1005,buyerName:"Jorge Castillo",amount:120,status:"Escrow"}
+];
+save();
 }
 
 function renderOrders(){
-ordersDiv=""
-orders.innerHTML=""
+const ordersDiv = document.getElementById("orders");
+ordersDiv.innerHTML = "";
+
 orders.forEach(o=>{
-orders.innerHTML+=`
+ordersDiv.innerHTML += `
 <div class="card">
 <b>Orden #${o.id}</b><br>
 Comprador: ${o.buyerName}<br>
-Teléfono: ${o.buyerPhone}<br>
 Cantidad: ${o.amount} USDT<br>
 Estado: ${o.status}<br>
-<button onclick="completeOrder(${o.id})">Completar</button>
-</div>`
-})
+${o.status==="Escrow" ? `<button onclick="completeOrder(${o.id})">Completar</button>` : ""}
+</div>`;
+});
 }
 
 async function completeOrder(id){
-let order=orders.find(o=>o.id===id)
-order.status="Completada"
+let order = orders.find(o=>o.id===id);
+if(order.status==="Completada") return;
 
-let blockData={
-time:Date.now(),
-orderId:id,
-buyer:order.buyerName
-}
+order.status="Completada";
 
-let hash=await sha256(JSON.stringify(blockData))
+const blockData = {
+time: Date.now(),
+orderId: id,
+buyer: order.buyerName
+};
+
+const hash = await sha256(JSON.stringify(blockData));
 
 blockchain.push({
-index:blockchain.length,
-data:blockData,
+index: blockchain.length,
+data: blockData,
 hash
-})
+});
 
-currentUser.balance+=order.amount
-currentUser.reputation+=1
+currentUser.balance += order.amount;
+currentUser.reputation += 1;
 
-save()
-updateUI()
-renderOrders()
-renderChain()
+save();
+updateUI();
+renderOrders();
+renderChain();
 }
+
+// -------- Blockchain --------
 
 function renderChain(){
-chain.innerHTML=""
+const chainDiv = document.getElementById("chain");
+chainDiv.innerHTML="";
+
 blockchain.slice(-5).forEach(b=>{
-chain.innerHTML+=`
+chainDiv.innerHTML += `
 <div class="small">
 Bloque #${b.index}<br>
-Hash: ${b.hash.slice(0,25)}...
-</div><hr>`
-})
+Hash: ${b.hash.slice(0,30)}...
+</div><hr>`;
+});
 }
+
+// -------- Init --------
 
 if(orders.length===0){
-generarOrdenesDemo()
+generarOrdenesDemo();
 }
 
-if(currentUser) init()
+if(currentUser){
+init();
+}
 
 </script>
 
 </body>
-</html>
+  </html>
